@@ -3,35 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Toll Gate Innovations (Local AI)</title>
+    <title>Toll Gate Innovations (Multi-Threaded)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-    
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
-
     <style>
         body { font-family: 'JetBrains Mono', monospace; }
         canvas { transform: scaleX(-1); }
-        .scan-line {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 4px;
-            background: #fbbf24;
-            box-shadow: 0 0 15px #fbbf24;
-            animation: scan 2.5s linear infinite;
-            opacity: 0.6;
-            pointer-events: none;
-            display: none;
-        }
-        @keyframes scan {
-            0% { top: 0%; opacity: 0; }
-            10% { opacity: 1; }
-            90% { opacity: 1; }
-            100% { top: 100%; opacity: 0; }
-        }
         .highway-grid {
             background-color: #0f172a;
             background-image: linear-gradient(rgba(56, 189, 248, 0.05) 1px, transparent 1px),
@@ -40,37 +17,27 @@
         }
     </style>
 </head>
-<body class="text-slate-300 min-h-screen flex flex-col items-center justify-center p-4 highway-grid selection:bg-amber-500/30">
+<body class="text-slate-300 min-h-screen flex flex-col items-center justify-center p-4 highway-grid">
 
     <div class="w-full max-w-5xl flex flex-col md:flex-row justify-between items-start md:items-end mb-4 border-b border-slate-700 pb-3 gap-4">
         <div>
-            <h1 class="text-xl md:text-2xl font-bold tracking-tighter text-white uppercase">
-                TOLL GATE INNOVATIONS: <br class="hidden md:block" /><span class="text-amber-400">EASING TRAFFIC AND BOOSTING SAFETY</span>
-            </h1>
-            <p class="text-xs text-sky-400 mt-2 font-bold tracking-widest">TARGET: VEHICLE MONITORING | SYSTEM: LOCAL_TFJS_V1</p>
+            <h1 class="text-xl md:text-2xl font-bold text-white uppercase">TOLL GATE INNOVATIONS</h1>
+            <p class="text-xs text-sky-400 mt-2 font-bold tracking-widest">SYSTEM: WEB_WORKER_ASYNC</p>
         </div>
         <div class="flex flex-col items-start md:items-end bg-slate-800/50 p-2 rounded border border-slate-700">
             <div id="api-status" class="flex items-center gap-2 text-xs font-bold text-slate-400">
-                <div class="w-2 h-2 rounded-full bg-slate-500"></div> STANDBY
+                <div class="w-2 h-2 rounded-full bg-amber-400"></div> INITIALIZING WORKER
             </div>
-            <div class="text-[10px] text-slate-500 mt-1">LATENCY: <span id="latency-meter" class="text-slate-300">0</span>ms</div>
+            <div class="text-[10px] text-slate-500 mt-1">AI THREAD FPS: <span id="fps-meter" class="text-slate-300">0</span></div>
         </div>
     </div>
 
-    <div class="relative w-full max-w-5xl aspect-video bg-black rounded-lg border-2 border-slate-700 overflow-hidden shadow-2xl shadow-blue-900/20">
+    <div class="relative w-full max-w-5xl aspect-video bg-black rounded-lg border-2 border-slate-700 overflow-hidden shadow-2xl">
         
-        <div id="scanner" class="scan-line z-20"></div>
-
         <div id="start-screen" class="absolute inset-0 z-30 flex flex-col items-center justify-center bg-slate-900/90 backdrop-blur-md">
-            <div class="border border-amber-500/30 bg-slate-800/80 p-8 rounded-lg max-w-md text-center shadow-xl shadow-black/50">
-                <svg class="w-16 h-16 text-amber-400 mx-auto mb-4 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
-                <h2 class="text-xl font-bold text-white mb-2 uppercase tracking-wide">Initialize Local AI</h2>
-                <p class="text-slate-400 text-sm mb-6">Load the offline AI model and connect to the surveillance feed.</p>
-                <button id="start-btn" onclick="initSystem()" class="group relative px-6 py-3 font-bold text-slate-900 bg-amber-400 hover:bg-amber-300 rounded transition-all w-full overflow-hidden">
-                    <span class="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out"></span>
-                    <span class="relative" id="btn-text">LOAD AI & CONNECT</span>
-                </button>
-            </div>
+            <button id="start-btn" onclick="initSystem()" class="px-6 py-3 font-bold text-slate-900 bg-amber-400 hover:bg-amber-300 rounded transition-all">
+                CONNECT CAMERA
+            </button>
         </div>
 
         <video id="webcam" class="hidden" playsinline muted></video>
@@ -78,223 +45,142 @@
 
         <div class="absolute top-4 left-4 z-20">
             <div class="bg-slate-900/90 border-l-4 border-amber-400 p-4 shadow-lg">
-                <div class="text-[10px] text-amber-400 uppercase tracking-widest mb-1 font-bold">Vehicles In Toll Zone</div>
+                <div class="text-[10px] text-amber-400 uppercase tracking-widest mb-1 font-bold">Vehicles In Zone</div>
                 <div id="car-count" class="text-5xl font-bold text-white tabular-nums leading-none">0</div>
-            </div>
-        </div>
-
-        <div class="absolute bottom-4 left-4 z-20 flex gap-2 md:gap-4 flex-col md:flex-row">
-             <div class="flex items-center gap-2 bg-slate-900/80 px-3 py-2 rounded border border-slate-700 shadow-md">
-                <div class="w-3 h-3 rounded-sm bg-emerald-500 shadow-[0_0_8px_#10b981]"></div>
-                <span class="text-[10px] uppercase font-bold text-slate-200">Processed Target</span>
-            </div>
-            <div class="flex items-center gap-2 bg-slate-900/80 px-3 py-2 rounded border border-slate-700 shadow-md">
-                <div class="w-3 h-3 rounded-sm bg-orange-500 shadow-[0_0_8px_#f97316]"></div>
-                <span class="text-[10px] uppercase font-bold text-slate-200">Approaching/Out</span>
             </div>
         </div>
     </div>
 
-    <script type="module">
-        // ---------------------------------------------------------
-        // CONFIGURATION
-        // ---------------------------------------------------------
-        const ANALYSIS_INTERVAL_MS = 200; // Much faster! Local models have less latency
+    <script id="worker-script" type="javascript/worker">
+        importScripts('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs');
+        importScripts('https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd');
+
+        let model = null;
+
+        // Initialize Model
+        cocoSsd.load({ base: 'lite_mobilenet_v2' }).then(loadedModel => {
+            model = loadedModel;
+            postMessage({ type: 'ready' });
+        });
+
+        // Listen for frames from the main thread
+        onmessage = async (e) => {
+            if (!model || e.data.type !== 'analyze') return;
+            
+            const imageData = e.data.imageData;
+            const vehicleClasses = ['car', 'truck', 'bus', 'motorcycle'];
+            
+            try {
+                const predictions = await model.detect(imageData);
+                const vehicles = predictions.filter(p => vehicleClasses.includes(p.class));
+                postMessage({ type: 'results', data: vehicles });
+            } catch (err) {
+                console.error("Worker Error:", err);
+            }
+        };
+    </script>
+
+    <script>
         const LANE_COLOR = '#fbbf24';
-        const BOX_COLOR_IN = '#10b981';
-        const BOX_COLOR_OUT = '#f97316';
-        
-        // ---------------------------------------------------------
-        // STATE
-        // ---------------------------------------------------------
-        let stream = null;
+        let stream, worker;
         let isRunning = false;
         let currentPredictions = [];
-        let isAnalyzing = false;
         let lane = { x: 0, y: 0, w: 0, h: 0 };
-        let model = null; // Holds the local AI model
+        let isWorkerBusy = false;
+        let lastFrameTime = Date.now();
         
         const video = document.getElementById('webcam');
         const canvas = document.getElementById('output');
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
         const startScreen = document.getElementById('start-screen');
-        const scanner = document.getElementById('scanner');
-        const apiStatus = document.getElementById('api-status');
-        const latencyMeter = document.getElementById('latency-meter');
+        const statusEl = document.getElementById('api-status');
         const countDisplay = document.getElementById('car-count');
-        const btnText = document.getElementById('btn-text');
-        const startBtn = document.getElementById('start-btn');
+        const fpsMeter = document.getElementById('fps-meter');
 
-        // ---------------------------------------------------------
-        // INITIALIZATION
-        // ---------------------------------------------------------
-        window.initSystem = async () => {
-            try {
-                // 1. Load Model locally
-                btnText.innerText = "LOADING AI MODEL...";
-                startBtn.classList.add('opacity-50', 'cursor-not-allowed');
-                startBtn.disabled = true;
-                
-                model = await cocoSsd.load();
-                
-                startScreen.classList.add('hidden');
-                
-                // 2. Get Camera
-                stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
-                    audio: false
-                });
-                
-                video.srcObject = stream;
-                
-                video.onloadedmetadata = () => {
-                    video.play();
-                    
-                    canvas.width = video.videoWidth;
-                    canvas.height = video.videoHeight;
-                    updateLane();
-                    
-                    isRunning = true;
-                    scanner.style.display = 'block';
-                    
-                    requestAnimationFrame(renderLoop);
-                    setInterval(analyzeFrame, ANALYSIS_INTERVAL_MS);
-                };
+        // Setup the Web Worker using a Blob
+        const workerCode = document.getElementById('worker-script').textContent;
+        const blob = new Blob([workerCode], { type: 'application/javascript' });
+        worker = new Worker(URL.createObjectURL(blob));
 
-            } catch (err) {
-                console.error("Init failed:", err);
-                alert("Camera access denied or error: " + err.message);
-                btnText.innerText = "CONNECT CAMERA";
-                startBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-                startBtn.disabled = false;
+        worker.onmessage = (e) => {
+            if (e.data.type === 'ready') {
+                statusEl.innerHTML = `<div class="w-2 h-2 rounded-full bg-slate-500"></div> STANDBY`;
+            } else if (e.data.type === 'results') {
+                currentPredictions = e.data.data;
+                isWorkerBusy = false; // Free the worker to take the next frame
+                
+                // Calculate AI FPS
+                const now = Date.now();
+                fpsMeter.innerText = Math.round(1000 / (now - lastFrameTime));
+                lastFrameTime = now;
             }
+        };
+
+        window.initSystem = async () => {
+            startScreen.classList.add('hidden');
+            statusEl.innerHTML = `<div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div> CAMERA ACTIVE`;
+            
+            stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+                audio: false
+            });
+            
+            video.srcObject = stream;
+            video.onloadedmetadata = () => {
+                video.play();
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                updateLane();
+                isRunning = true;
+                requestAnimationFrame(renderLoop);
+            };
         };
 
         function updateLane() {
             const w = canvas.width * 0.5;
             const h = canvas.height * 0.7;
-            const x = (canvas.width - w) / 2;
-            const y = (canvas.height - h) / 2;
-            lane = { x, y, w, h };
+            lane = { x: (canvas.width - w) / 2, y: (canvas.height - h) / 2, w, h };
         }
 
-        // ---------------------------------------------------------
-        // RENDER LOOP (60fps)
-        // ---------------------------------------------------------
         function renderLoop() {
             if (!isRunning) return;
 
+            // 1. Draw Video instantly (Smooth 60FPS)
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
+            // 2. Send frame to AI Worker ONLY if it isn't currently busy processing one
+            if (!isWorkerBusy && video.readyState === 4) {
+                isWorkerBusy = true;
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                worker.postMessage({ type: 'analyze', imageData: imageData });
+            }
+
+            // 3. Draw Lane
             ctx.save();
             ctx.strokeStyle = LANE_COLOR;
             ctx.lineWidth = 4;
             ctx.setLineDash([15, 10]); 
             ctx.strokeRect(lane.x, lane.y, lane.w, lane.h);
-            
-            ctx.fillStyle = 'rgba(251, 191, 36, 0.1)';
-            ctx.fillRect(lane.x, lane.y, lane.w, lane.h);
-            
-            ctx.scale(-1, 1); 
-            ctx.fillStyle = LANE_COLOR;
-            ctx.font = 'bold 16px JetBrains Mono';
-            const labelX = -(lane.x + lane.w);
-            ctx.fillText("ACTIVE TOLL ZONE", labelX, lane.y - 10);
             ctx.restore();
 
+            // 4. Draw latest known predictions
             let validCount = 0;
+            currentPredictions.forEach(box => {
+                const [x, y, w, h] = box.bbox;
+                const cx = x + (w / 2);
+                const cy = y + (h / 2);
+                
+                const isInLane = (cx >= lane.x && cx <= (lane.x + lane.w) && cy >= lane.y && cy <= (lane.y + lane.h));
+                if (isInLane) validCount++;
 
-            if (currentPredictions && currentPredictions.length > 0) {
-                currentPredictions.forEach(box => {
-                    // Coordinates are normalized directly to original canvas size by TFJS adapter below
-                    const x = (box.xmin / 1000) * canvas.width;
-                    const y = (box.ymin / 1000) * canvas.height;
-                    const w = ((box.xmax - box.xmin) / 1000) * canvas.width;
-                    const h = ((box.ymax - box.ymin) / 1000) * canvas.height;
-                    
-                    const cx = x + (w / 2);
-                    const cy = y + (h / 2);
-                    
-                    const isInLane = (
-                        cx >= lane.x && cx <= (lane.x + lane.w) &&
-                        cy >= lane.y && cy <= (lane.y + lane.h)
-                    );
-
-                    if (isInLane) validCount++;
-
-                    const color = isInLane ? BOX_COLOR_IN : BOX_COLOR_OUT;
-                    
-                    ctx.strokeStyle = color;
-                    ctx.lineWidth = 3;
-                    ctx.beginPath();
-                    const lineLen = Math.min(w, h) * 0.25;
-                    
-                    ctx.moveTo(x, y + lineLen); ctx.lineTo(x, y); ctx.lineTo(x + lineLen, y);
-                    ctx.moveTo(x + w - lineLen, y); ctx.lineTo(x + w, y); ctx.lineTo(x + w, y + lineLen);
-                    ctx.moveTo(x + w, y + h - lineLen); ctx.lineTo(x + w, y + h); ctx.lineTo(x + w - lineLen, y + h);
-                    ctx.moveTo(x + lineLen, y + h); ctx.lineTo(x, y + h); ctx.lineTo(x, y + h - lineLen);
-                    
-                    ctx.stroke();
-
-                    // Optional Tag for the vehicle type
-                    ctx.save();
-                    ctx.scale(-1, 1); // Flip back for text
-                    ctx.fillStyle = color;
-                    ctx.font = '12px JetBrains Mono';
-                    ctx.fillText(box.class.toUpperCase(), -(x + w), y - 5);
-                    ctx.restore();
-                });
-            }
+                ctx.strokeStyle = isInLane ? '#10b981' : '#f97316';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(x, y, w, h);
+            });
 
             countDisplay.innerText = validCount;
             requestAnimationFrame(renderLoop);
-        }
-
-        // ---------------------------------------------------------
-        // AI LOGIC: LOCAL TENSORFLOW.JS (COCO-SSD)
-        // ---------------------------------------------------------
-        async function analyzeFrame() {
-            if (isAnalyzing || !isRunning || !model) return;
-            
-            isAnalyzing = true;
-            const startTime = Date.now();
-            
-            apiStatus.innerHTML = `<div class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></div> ANALYZING`;
-
-            try {
-                // Run inference directly on the video element
-                const predictions = await model.detect(video);
-                
-                // Filter only vehicle types from COCO dataset
-                const vehicleClasses = ['car', 'truck', 'bus', 'motorcycle'];
-                const vehicles = predictions.filter(p => vehicleClasses.includes(p.class));
-
-                // Normalize coordinates to 0-1000 to match your original render system
-                const vw = video.videoWidth;
-                const vh = video.videoHeight;
-
-                currentPredictions = vehicles.map(v => {
-                    const [x, y, w, h] = v.bbox;
-                    return { 
-                        xmin: (x / vw) * 1000, 
-                        ymin: (y / vh) * 1000, 
-                        xmax: ((x + w) / vw) * 1000, 
-                        ymax: ((y + h) / vh) * 1000,
-                        class: v.class
-                    };
-                });
-
-                const latency = Date.now() - startTime;
-                latencyMeter.innerText = latency;
-                apiStatus.innerHTML = `<div class="w-2 h-2 rounded-full bg-emerald-500"></div> ACTIVE LOCAL`;
-
-            } catch (error) {
-                console.error("Model Error:", error);
-                apiStatus.innerHTML = `<div class="w-2 h-2 rounded-full bg-red-500"></div> ERROR`;
-            } finally {
-                isAnalyzing = false;
-            }
         }
 
         window.addEventListener('resize', () => {
@@ -304,7 +190,6 @@
                 updateLane();
             }
         });
-
     </script>
 </body>
 </html>
